@@ -121,10 +121,14 @@ public:
         cols=clamp11(max(20,mc),20,36);
         if(rows%2==0)rows--;if(cols%2==0)cols--;
         board.assign(rows,string(cols,' '));
-        snake.clear();int sr=rows/2,sc=cols/2;
-        for(int i=0;i<5;i++)snake.push_back({sr,sc-i});
+        snake.clear();snake2.clear();
+        int sr=rows/2,sc=cols/2;
+        int sr1=max(0,sr-2),sr2=min(rows-1,sr+2);
+        for(int i=0;i<5;i++)snake.push_back({sr1,sc-i});
+        for(int i=0;i<5;i++)snake2.push_back({sr2,sc-i});
         dir=RIGHT;pending_dir=RIGHT;dir_changed=false;
-        alive=true;paused=false;score=0;level=1;fruitsEaten=0;
+        dir2=RIGHT;pending_dir2=RIGHT;dir_changed2=false;
+        alive=true;p1Lost=false;p2Lost=false;paused=false;score=0;score2=0;level=1;fruitsEaten=0;
         baseDelay=100;curDelay=baseDelay;obstacles.clear();
         placeFruit();
         T::hideCursor();
@@ -142,7 +146,7 @@ public:
             if(now>=next){
                 if(alive&&!paused)step();
                 drawSmooth();
-                dir_changed=false;
+                dir_changed=false;dir_changed2=false;
                 next=now+milliseconds(max(25,curDelay));
             }else sleep_ms(2);
         }
@@ -150,10 +154,12 @@ public:
     }
 private:
     int rows=16,cols=36;
-    vector<string>board;deque<Pt>snake;vector<Pt>obstacles;
+    vector<string>board;deque<Pt>snake;deque<Pt>snake2;vector<Pt>obstacles;
     Fruit fruit;Dir dir=RIGHT,pending_dir=RIGHT;
-    bool dir_changed=false,alive=true,paused=false;
-    int score=0,level=1,fruitsEaten=0,baseDelay=100,curDelay=100;
+    Dir dir2=RIGHT,pending_dir2=RIGHT;
+    bool dir_changed=false,dir_changed2=false,alive=true,paused=false;
+    bool p1Lost=false,p2Lost=false;
+    int score=0,score2=0,level=1,fruitsEaten=0,baseDelay=100,curDelay=100;
     mt19937_64 rng;
     string buffer;
 
@@ -163,7 +169,7 @@ private:
         char buf[64];sprintf(buf,"\x1b[38;2;%d;%d;%dm",r,g,b);return string(buf);}
     void placeFruit(){
         vector<Pt>e;vector<vector<char>>u(rows,vector<char>(cols,0));
-        for(auto&s:snake)u[s.r][s.c]=1;for(auto&o:obstacles)u[o.r][o.c]=1;
+        for(auto&s:snake)u[s.r][s.c]=1;for(auto&s:snake2)u[s.r][s.c]=1;for(auto&o:obstacles)u[o.r][o.c]=1;
         for(int r=0;r<rows;r++)for(int c=0;c<cols;c++)if(!u[r][c])e.push_back({r,c});
         if(e.empty())return;uniform_int_distribution<int>d(0,(int)e.size()-1);
         Pt p=e[d(rng)];uniform_int_distribution<int>t(0,99);int tt=t(rng);
@@ -172,37 +178,75 @@ private:
     void maybeAddObstacle(){
         if(fruitsEaten>0&&fruitsEaten%6==0&&obstacles.size()<(size_t)(rows/5)){
             vector<Pt>e;vector<vector<char>>u(rows,vector<char>(cols,0));
-            for(auto&s:snake)u[s.r][s.c]=1;for(auto&o:obstacles)u[o.r][o.c]=1;
+            for(auto&s:snake)u[s.r][s.c]=1;for(auto&s:snake2)u[s.r][s.c]=1;for(auto&o:obstacles)u[o.r][o.c]=1;
             for(int r=0;r<rows;r++)for(int c=0;c<cols;c++)if(!u[r][c])e.push_back({r,c});
             if(e.empty())return;uniform_int_distribution<int>d(0,(int)e.size()-1);
             obstacles.push_back(e[d(rng)]);}
     }
     void step(){
-        dir=pending_dir;Pt h=snake.front(),n=h;
+        dir=pending_dir;dir2=pending_dir2;
+        Pt h=snake.front(),n=h;
         if(dir==UP)n.r--;else if(dir==DOWN)n.r++;else if(dir==LEFT)n.c--;else n.c++;
-        if(n.r<0||n.r>=rows||n.c<0||n.c>=cols){alive=false;return;}
-        for(auto&o:obstacles)if(o.r==n.r&&o.c==n.c){alive=false;return;}
+        Pt h2=snake2.front(),n2=h2;
+        if(dir2==UP)n2.r--;else if(dir2==DOWN)n2.r++;else if(dir2==LEFT)n2.c--;else n2.c++;
+
         bool grow=(n.r==fruit.p.r&&n.c==fruit.p.c);
+        bool grow2=(n2.r==fruit.p.r&&n2.c==fruit.p.c);
         if(!grow)snake.pop_back();
-        for(auto&s:snake)if(s.r==n.r&&s.c==n.c){alive=false;return;}
+        if(!grow2)snake2.pop_back();
+
+        bool p1_hit=false;
+        if(n.r<0||n.r>=rows||n.c<0||n.c>=cols)p1_hit=true;
+        if(!p1_hit){for(auto&o:obstacles)if(o.r==n.r&&o.c==n.c){p1_hit=true;break;}}
+        if(!p1_hit){for(auto&s:snake)if(s.r==n.r&&s.c==n.c){p1_hit=true;break;}}
+        if(!p1_hit){for(auto&s:snake2)if(s.r==n.r&&s.c==n.c){p1_hit=true;break;}}
+
+        bool p2_hit=false;
+        if(n2.r<0||n2.r>=rows||n2.c<0||n2.c>=cols)p2_hit=true;
+        if(!p2_hit){for(auto&o:obstacles)if(o.r==n2.r&&o.c==n2.c){p2_hit=true;break;}}
+        if(!p2_hit){for(auto&s:snake2)if(s.r==n2.r&&s.c==n2.c){p2_hit=true;break;}}
+        if(!p2_hit){for(auto&s:snake)if(s.r==n2.r&&s.c==n2.c){p2_hit=true;break;}}
+
+        if(n.r==n2.r&&n.c==n2.c){p1_hit=true;p2_hit=true;}
+
+        if(p1_hit||p2_hit){
+            alive=false;p1Lost=p1_hit;p2Lost=p2_hit;return;
+        }
+
         snake.push_front(n);
-        if(grow){fruitsEaten++;
-            if(fruit.type==0)score+=10;else if(fruit.type==1)score+=25;
-            else{score+=8;curDelay=max(30,curDelay-15);}
+        snake2.push_front(n2);
+
+        if(grow||grow2){
+            fruitsEaten++;
+            int ptVal=(fruit.type==0?10:(fruit.type==1?25:8));
+            if(grow)score+=ptVal;
+            if(grow2)score2+=ptVal;
+            if(fruit.type==2)curDelay=max(30,curDelay-15);
             if(fruitsEaten%4==0){level++;curDelay=max(30,curDelay-6);}
-            placeFruit();maybeAddObstacle();}
+            placeFruit();maybeAddObstacle();
+        }
     }
     bool handleInput(int k){
         if(k==0)return true;if(k=='q'||k=='Q')return false;
         if(k=='r'||k=='R'){init();return true;}
         if(k=='p'||k=='P'){paused=!paused;return true;}
-        if(!alive||paused||dir_changed)return true;
-        Dir c=dir;
-        if(k==KEY_UP||k=='w'||k=='W')c=UP;
-        else if(k==KEY_DOWN||k=='s'||k=='S')c=DOWN;
-        else if(k==KEY_LEFT||k=='a'||k=='A')c=LEFT;
-        else if(k==KEY_RIGHT||k=='d'||k=='D')c=RIGHT;
-        if(!isOpposite(dir,c)&&c!=NONE){pending_dir=c;dir_changed=true;}
+        if(!alive||paused)return true;
+        if(!dir_changed){
+            Dir c=dir;
+            if(k==KEY_UP)c=UP;
+            else if(k==KEY_DOWN)c=DOWN;
+            else if(k==KEY_LEFT)c=LEFT;
+            else if(k==KEY_RIGHT)c=RIGHT;
+            if(!isOpposite(dir,c)&&c!=NONE){pending_dir=c;dir_changed=true;}
+        }
+        if(!dir_changed2){
+            Dir c2=dir2;
+            if(k=='w'||k=='W')c2=UP;
+            else if(k=='s'||k=='S')c2=DOWN;
+            else if(k=='a'||k=='A')c2=LEFT;
+            else if(k=='d'||k=='D')c2=RIGHT;
+            if(!isOpposite(dir2,c2)&&c2!=NONE){pending_dir2=c2;dir_changed2=true;}
+        }
         return true;}
     static bool isOpposite(Dir a,Dir b){
         return (a==UP&&b==DOWN)||(a==DOWN&&b==UP)||(a==LEFT&&b==RIGHT)||(a==RIGHT&&b==LEFT);}
@@ -238,6 +282,17 @@ private:
                         }
                     }
                     if(!snakeCell){
+                        for(size_t i=0;i<snake2.size();++i){
+                            Pt s=snake2[i];
+                            if(s.r==r&&s.c==c){
+                                if(i==0)buffer+="\x1b[38;2;255;180;120m■";
+                                else buffer+="\x1b[38;2;220;100;50m■";
+                                snakeCell=true;
+                                break;
+                            }
+                        }
+                    }
+                    if(!snakeCell){
                         if(r==fruit.p.r&&c==fruit.p.c){
                             if(fruit.type==0)buffer+="\x1b[38;2;255;120;120m●";
                             else if(fruit.type==1)buffer+="\x1b[38;2;255;215;90m★";
@@ -250,8 +305,12 @@ private:
         }
         for(int c=0;c<cols+4;c++)buffer+=neon(c)+"═";
         buffer+="\x1b[0m\n";
-        buffer+="Score:"+to_string(score)+"  Level:"+to_string(level);
-        if(!alive)buffer+="  \x1b[38;2;255;100;100m[GAME OVER]";
+        buffer+="P1 Score:"+to_string(score)+"  P2 Score:"+to_string(score2)+"  Level:"+to_string(level);
+        if(!alive){
+            if(p1Lost&&p2Lost) buffer+="  \x1b[38;2;255;100;100m[GAME OVER - Both Players Lost]";
+            else if(p1Lost) buffer+="  \x1b[38;2;255;100;100m[GAME OVER - Player 1 Lost]";
+            else if(p2Lost) buffer+="  \x1b[38;2;255;100;100m[GAME OVER - Player 2 Lost]";
+        }
         if(paused)buffer+="  \x1b[38;2;255;255;120m[PAUSED]";
         cout<<buffer;
         T::flush();

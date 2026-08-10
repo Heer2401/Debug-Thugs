@@ -138,13 +138,18 @@ public:
 
         board.assign(rows, string(cols, ' '));
         snake.clear();
+        snake2.clear();
         int sr = rows/2, sc = cols/2;
-        // initial snake length 5
-        for (int i=0;i<5;i++) snake.push_back({sr, sc - i});
+        int sr1 = max(0, sr - 2);
+        int sr2 = min(rows - 1, sr + 2);
+        for (int i=0;i<5;i++) snake.push_back({sr1, sc - i});
+        for (int i=0;i<5;i++) snake2.push_back({sr2, sc - i});
         dir = RIGHT; pending_dir = RIGHT; dir_changed = false;
+        dir2 = RIGHT; pending_dir2 = RIGHT; dir_changed2 = false;
         alive = true;
+        p1Lost = false; p2Lost = false;
         paused = false;
-        score = 0; level = 1; fruitsEaten = 0;
+        score = 0; score2 = 0; level = 1; fruitsEaten = 0;
         baseDelay = 100; curDelay = baseDelay;
         obstacles.clear();
         placeFruit();
@@ -168,7 +173,8 @@ public:
                     step();
                 }
                 draw();
-                dir_changed = false; 
+                dir_changed = false;
+                dir_changed2 = false;
                 nextTime = now + milliseconds(max(25, curDelay));
             } else {
                 this_thread::sleep_for(milliseconds(2));
@@ -181,12 +187,15 @@ private:
     int rows=16, cols=36;
     vector<string> board;
     deque<Pt> snake;
+    deque<Pt> snake2;
     vector<Pt> obstacles;
     Fruit fruit;
     Dir dir = RIGHT, pending_dir = RIGHT;
-    bool dir_changed = false;
+    Dir dir2 = RIGHT, pending_dir2 = RIGHT;
+    bool dir_changed = false, dir_changed2 = false;
     bool alive = true, paused = false;
-    int score = 0, level = 1, fruitsEaten = 0;
+    bool p1Lost = false, p2Lost = false;
+    int score = 0, score2 = 0, level = 1, fruitsEaten = 0;
     int baseDelay = 100, curDelay = 100;
     std::mt19937_64 rng;
 
@@ -257,20 +266,39 @@ private:
             }
         }
 
+        for (int i=0;i<snake2.size();++i) {
+            Pt s = snake2[i];
+            T::moveTo(top+2+s.r, left+2+s.c);
+            if (i==0) cout << "\x1b[38;2;255;180;120m" << "■" << "\x1b[0m";
+            else {
+                int t = (int)( (double)i / max(1,(int)snake2.size()) * 120 );
+                int r = max(80, 220 - t), g = max(30, 100 + t/2), b = max(20, 30 + t);
+                char buf[64]; sprintf(buf, "\x1b[38;2;%d;%d;%dm", r,g,b);
+                cout << buf << "■" << "\x1b[0m";
+            }
+        }
+
         // Side HUD
         int hudL = left + frameW + 2;
         T::moveTo(top + 1, hudL); cout << "\x1b[38;2;200;120;255mCyber - Neon Snake\x1b[0m";
-        T::moveTo(top + 3, hudL); cout << "Score: " << score;
-        T::moveTo(top + 4, hudL); cout << "Level: " << level;
-        T::moveTo(top + 5, hudL); cout << "Speed: " << (1000 / max(1, curDelay));
-        T::moveTo(top + 7, hudL); cout << "Fruit: ● normal  ★ bonus  ✦ speed";
-        T::moveTo(top + 9, hudL); cout << "Controls: Arrows / WASD";
-        T::moveTo(top + 10, hudL); cout << "P - Pause | R - Restart | Q - Quit";
+        T::moveTo(top + 3, hudL); cout << "P1 Score: " << score << "   ";
+        T::moveTo(top + 4, hudL); cout << "P2 Score: " << score2 << "   ";
+        T::moveTo(top + 5, hudL); cout << "Level: " << level;
+        T::moveTo(top + 6, hudL); cout << "Speed: " << (1000 / max(1, curDelay));
+        T::moveTo(top + 8, hudL); cout << "Fruit: ● normal  ★ bonus  ✦ speed";
+        T::moveTo(top + 10, hudL); cout << "P1: Arrows | P2: WASD";
+        T::moveTo(top + 11, hudL); cout << "P - Pause | R - Restart | Q - Quit";
 
         // footer / game over
         if (!alive) {
             T::moveTo(top + frameH + 1, left + 2);
-            cout << "\x1b[1;38;2;255;120;140m GAME OVER — Press R to restart or Q to quit \x1b[0m";
+            if (p1Lost && p2Lost) {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Both Players Lost! Press R to restart or Q to quit \x1b[0m";
+            } else if (p1Lost) {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Player 1 Lost! Press R to restart or Q to quit \x1b[0m";
+            } else if (p2Lost) {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Player 2 Lost! Press R to restart or Q to quit \x1b[0m";
+            }
         } else if (paused) {
             T::moveTo(top + frameH + 1, left + 2);
             cout << "\x1b[1;38;2;240;220;120m PAUSED — Press P to resume \x1b[0m";
@@ -284,6 +312,7 @@ private:
         vector<Pt> empties;
         vector<vector<char>> used(rows, vector<char>(cols, 0));
         for (auto &s : snake) used[s.r][s.c] = 1;
+        for (auto &s : snake2) used[s.r][s.c] = 1;
         for (auto &o : obstacles) used[o.r][o.c] = 1;
         for (int r=0;r<rows;r++) for (int c=0;c<cols;c++) if (!used[r][c]) empties.push_back({r,c});
         if (empties.empty()) return;
@@ -301,6 +330,7 @@ private:
             vector<Pt> empties;
             vector<vector<char>> used(rows, vector<char>(cols, 0));
             for (auto &s : snake) used[s.r][s.c] = 1;
+            for (auto &s : snake2) used[s.r][s.c] = 1;
             for (auto &o : obstacles) used[o.r][o.c] = 1;
             for (int r=0;r<rows;r++) for (int c=0;c<cols;c++) if (!used[r][c]) empties.push_back({r,c});
             if (empties.empty()) return;
@@ -311,6 +341,7 @@ private:
 
     void step() {
         dir = pending_dir;
+        dir2 = pending_dir2;
 
         Pt head = snake.front();
         Pt nxt = head;
@@ -321,34 +352,57 @@ private:
             case RIGHT: nxt.c++; break;
             default: break;
         }
-        
-        // wall or obstacle collision
-        if (nxt.r < 0 || nxt.r >= rows || nxt.c < 0 || nxt.c >= cols) { alive = false; return; }
-        for (auto &o : obstacles) if (o.r == nxt.r && o.c == nxt.c) { alive = false; return; }
 
-        // will the snake grow this tick?
+        Pt head2 = snake2.front();
+        Pt nxt2 = head2;
+        switch (dir2) {
+            case UP:    nxt2.r--; break;
+            case DOWN:  nxt2.r++; break;
+            case LEFT:  nxt2.c--; break;
+            case RIGHT: nxt2.c++; break;
+            default: break;
+        }
+
         bool grow = (nxt.r == fruit.p.r && nxt.c == fruit.p.c);
+        bool grow2 = (nxt2.r == fruit.p.r && nxt2.c == fruit.p.c);
 
-        // if not growing, the tail cell will be vacated BEFORE checking self-collision
-        if (!grow) {
-            snake.pop_back();               
+        if (!grow) snake.pop_back();
+        if (!grow2) snake2.pop_back();
+
+        bool p1_hit = false;
+        if (nxt.r < 0 || nxt.r >= rows || nxt.c < 0 || nxt.c >= cols) p1_hit = true;
+        if (!p1_hit) { for (auto &o : obstacles) if (o.r == nxt.r && o.c == nxt.c) { p1_hit = true; break; } }
+        if (!p1_hit) { for (const auto &s : snake) if (s.r == nxt.r && s.c == nxt.c) { p1_hit = true; break; } }
+        if (!p1_hit) { for (const auto &s : snake2) if (s.r == nxt.r && s.c == nxt.c) { p1_hit = true; break; } }
+
+        bool p2_hit = false;
+        if (nxt2.r < 0 || nxt2.r >= rows || nxt2.c < 0 || nxt2.c >= cols) p2_hit = true;
+        if (!p2_hit) { for (auto &o : obstacles) if (o.r == nxt2.r && o.c == nxt2.c) { p2_hit = true; break; } }
+        if (!p2_hit) { for (const auto &s : snake2) if (s.r == nxt2.r && s.c == nxt2.c) { p2_hit = true; break; } }
+        if (!p2_hit) { for (const auto &s : snake) if (s.r == nxt2.r && s.c == nxt2.c) { p2_hit = true; break; } }
+
+        if (nxt.r == nxt2.r && nxt.c == nxt2.c) {
+            p1_hit = true;
+            p2_hit = true;
         }
 
-        // self-collision 
-        for (const auto &s : snake) {
-            if (s.r == nxt.r && s.c == nxt.c) { alive = false; return; }
+        if (p1_hit || p2_hit) {
+            alive = false;
+            p1Lost = p1_hit;
+            p2Lost = p2_hit;
+            return;
         }
 
-        // place new head
         snake.push_front(nxt);
+        snake2.push_front(nxt2);
 
-        // handle fruit
-        if (grow) {
+        if (grow || grow2) {
             fruitsEaten++;
-            if (fruit.type == 0) score += 10;
-            else if (fruit.type == 1) score += 25;
-            else { // speed fruit
-                score += 8;
+            int ptValue = (fruit.type == 0 ? 10 : (fruit.type == 1 ? 25 : 8));
+            if (grow) score += ptValue;
+            if (grow2) score2 += ptValue;
+
+            if (fruit.type == 2) {
                 curDelay = max(30, curDelay - 15);
             }
             if (fruitsEaten % 4 == 0) {
@@ -370,18 +424,30 @@ private:
         if (!alive) return true;
         if (paused) return true;
 
-        if (dir_changed) return true;
+        if (!dir_changed) {
+            Dir candidate = dir;
+            if (key == KEY_UP) candidate = UP;
+            else if (key == KEY_DOWN) candidate = DOWN;
+            else if (key == KEY_LEFT) candidate = LEFT;
+            else if (key == KEY_RIGHT) candidate = RIGHT;
 
-        Dir candidate = dir;
-        if (key == KEY_UP || key == 'w' || key == 'W') candidate = UP;
-        else if (key == KEY_DOWN || key == 's' || key == 'S') candidate = DOWN;
-        else if (key == KEY_LEFT || key == 'a' || key == 'A') candidate = LEFT;
-        else if (key == KEY_RIGHT || key == 'd' || key == 'D') candidate = RIGHT;
+            if (!isOpposite(dir, candidate) && candidate != NONE) {
+                pending_dir = candidate;
+                dir_changed = true;
+            }
+        }
 
-        // prevent 180-degree turn
-        if (!isOpposite(dir, candidate) && candidate != NONE) {
-            pending_dir = candidate;
-            dir_changed = true;
+        if (!dir_changed2) {
+            Dir candidate2 = dir2;
+            if (key == 'w' || key == 'W') candidate2 = UP;
+            else if (key == 's' || key == 'S') candidate2 = DOWN;
+            else if (key == 'a' || key == 'A') candidate2 = LEFT;
+            else if (key == 'd' || key == 'D') candidate2 = RIGHT;
+
+            if (!isOpposite(dir2, candidate2) && candidate2 != NONE) {
+                pending_dir2 = candidate2;
+                dir_changed2 = true;
+            }
         }
         return true;
     }
