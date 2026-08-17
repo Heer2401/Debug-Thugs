@@ -1,8 +1,8 @@
-# Lab 2_3 — Group A__
+﻿# Lab 2_3 — Group A__
 
-> Copy this file to `lab2_3/REPORT.md` in your fork and fill it in. Keep the eight
+> Copy this file to lab2_3/REPORT.md in your fork and fill it in. Keep the eight
 > headings exactly as they are — they are the marking scheme, in order. Delete this
-> quote block and every `___` when you are done.
+> quote block and every ___ when you are done.
 
 ---
 
@@ -10,36 +10,36 @@
 
 | | |
 |---|---|
-| Agent used for run 2 | ___ (Claude Code / Codex CLI / Gemini CLI / other — name it) |
-| `ubiquitous-language` install route | ___ (`~/.claude/skills` / project `.claude/skills` / pasted `SKILL.md` / other) |
-| `refactoring/` pack install route | ___ |
+| Agent used for run 2 | Antigravity AI Agent |
+| ubiquitous-language install route | project .agents/skills |
+| efactoring/ pack install route | project .agents/skills |
 
 If anything would not install, say what failed here. The paste fallback is a documented
 route and costs no marks.
-
-___
 
 ---
 
 ## 2. What I changed in the glossary — [4]
 
-The generated file is at `lab2_3/UBIQUITOUS_LANGUAGE.md`. Three or four lines here on what
+The generated file is at lab2_3/UBIQUITOUS_LANGUAGE.md. Three or four lines here on what
 you corrected and why: terms it invented, definitions it got wrong, ambiguities it missed.
 
-___
+- Corrected Fruit citations from raw implementation logic (	ype == 0) to actual text evidence.
+- Removed "Code drift" related to magic numbers, as they are architectural issues, not terminology drift.
+- Removed "Player" as an alias for "Snake" and added separate entries for Player, Board, Head, and Tail. Added a "Flagged ambiguities" section resolving the Player vs. Snake conflation.
 
 ---
 
 ## 3. Smell delta — [6]
 
-Reports: `lab2_3/audits/main.md` (the code as you received it) and `lab2_3/audits/lab1-head.md`
+Reports: lab2_3/audits/main.md (the code as you received it) and lab2_3/audits/lab1-head.md
 (after your Lab-1 PR).
 
-| | count | representative site (`file:line`) |
+| | count | representative site (ile:line) |
 |---|---|---|
-| Smells my Lab-1 PR **introduced** | ___ | ___ |
-| Smells my Lab-1 PR **left untouched** | ___ | ___ |
-| Smells my Lab-1 PR **removed** | ___ | ___ |
+| Smells my Lab-1 PR **introduced** | 1 | part5.cpp:189 |
+| Smells my Lab-1 PR **left untouched** | 4 | part5.cpp:123 |
+| Smells my Lab-1 PR **removed** | 0 | - |
 
 The third row will probably be zero. Leave it in.
 
@@ -49,17 +49,17 @@ The third row will probably be zero. Leave it in.
 
 At least three things the agent reported that are *not* real findings on this codebase.
 
-| smell reported | `file:line` | why it does not hold |
+| smell reported | ile:line | why it does not hold |
 |---|---|---|
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
+| Switch Statements | part5.cpp:348 | Standard mapping for directions; polymorphism here would be over-engineering. |
+| Data Class | part5.cpp:118 | Fruit is a simple Plain Old Data (POD) struct, perfectly valid in C++. |
+| Comments (Excessive) | part5.cpp:310 | Comments are minimal section headers, not desperate attempts to mask unreadable code. |
 
 ---
 
 ## 5. Commit map — [7]
 
-Run `lab2_3/check-lab2_3.sh` and paste the table it prints.
+Run lab2_3/check-lab2_3.sh and paste the table it prints.
 
 | # | sha | subject | what it is |
 |---|---|---|---|
@@ -77,15 +77,15 @@ Run 1 is your Lab-1 branch — the numbers you already reported. Run 2 is commit
 | | Run 1 (Lab 1) | Run 2 (commit 4) |
 |---|---|---|
 | Smells introduced | ___ | ___ |
-| Lines changed, `git diff --shortstat -w` | ___ | ___ |
-| Lines changed, **raw** (no `-w`) | ___ | ___ |
+| Lines changed, git diff --shortstat -w | ___ | ___ |
+| Lines changed, **raw** (no -w) | ___ | ___ |
 | Functions reached | ___ | ___ |
 | Prompts to working code | ___ | ___ |
 | Wall-clock time | ___ | ___ |
 
-Commit 3 (the refactor) on its own: ___ lines `-w`, ___ raw.
+Commit 3 (the refactor) on its own: ___ lines -w, ___ raw.
 
-`check-lab2_3.sh` prints the four line-count numbers for run 2. Use them — they are measured
+check-lab2_3.sh prints the four line-count numbers for run 2. Use them — they are measured
 the same way for every group, which is what makes the class comparison mean anything.
 
 ---
@@ -106,7 +106,7 @@ ___
 
 ## 8. Analysis Q3–Q4 — [5]
 
-**Q3. Go back through your Lab-1 `LLM-LOG.md`. Did the assistant ever suggest restructuring
+**Q3. Go back through your Lab-1 LLM-LOG.md. Did the assistant ever suggest restructuring
 before adding the feature?** Quote it if it did. If it did not, what would have had to be
 different in your prompt?
 
