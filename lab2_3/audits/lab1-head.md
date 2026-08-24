@@ -1,0 +1,54 @@
+# Code Smell Audit — Final Lab 1 Branch Head (`feat/multiplayer`)
+
+> **Scope:** Analysis of the final Lab 1 codebase after adding 2-player multiplayer support (`feat/multiplayer` branch head, `part5.cpp`).  
+> **Confidence Model:** Calibrated using `review-accuracy-calibration` (C1–C4).  
+> **Taxonomy:** Based on `detect-code-smells`.
+
+---
+
+## Accepted Code Smell Findings
+
+### 1. Large Class (Bloater) — Left Untouched
+* **Severity:** HIGH
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:140` (Class `CyberSnake`)
+* **Explanation:** Inherited from `main` and left untouched. `CyberSnake` continues to serve as a God Class encompassing rendering, input handling, loop orchestration, and game rules for multiple players, now further burdened with managing dual-player state transitions and collision combinations.
+* **Refactoring Technique:** **Extract Class** (`refactor-moving-features`). Separate responsibilities into `GameEngine`, `TerminalRenderer`, and `InputHandler`.
+
+---
+
+### 2. Duplicate Code (Dispensables) — Introduced in Lab 1
+* **Severity:** HIGH
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:409-439` (Method `CyberSnake::handleInput()`)
+* **Explanation:** The Lab 1 multiplayer addition introduced duplicated logic blocks. The exact same directional validation pattern, opposite-direction check (`isOpposite()`), and pending direction updates are written once for Player 1 (lines 409–423) and duplicated almost verbatim for Player 2 (lines 425–439). Furthermore, in `step()` (lines 361–364), snake body collision loops are duplicated against `players[0].body` and `players[1].body`.
+* **Refactoring Technique:** **Extract Method** / **Parameterize Method** (`refactor-composing-methods`). Extract input processing into a parameterized helper: `void processPlayerInput(Player& p, int key, const KeyMap& mapping)`.
+
+---
+
+### 3. Primitive Obsession (Bloater) — Left Untouched
+* **Severity:** MEDIUM
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:126` (`struct Fruit`) & `part5.cpp:383-393`
+* **Explanation:** Inherited from `main` and left untouched. The fruit type continues to be tracked as a primitive integer `int type;` with magic constants (`0`, `1`, `2`) controlling point multipliers (`10`, `25`, `8`) and speed modifiers without an explicit domain type.
+* **Refactoring Technique:** **Replace Type Code with Class** / **Replace Type Code with Enum** (`refactor-organizing-data`).
+
+---
+
+### 4. Long Method (Bloater) — Left Untouched / Expanded
+* **Severity:** HIGH
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:337` (Method `CyberSnake::step()`)
+* **Explanation:** Inherited from `main` and expanded to 64 lines in Lab 1. It updates pending directions for both players, calculates next coordinates, verifies obstacle and cross-player body collisions, checks simultaneous head-on collisions (`nxt[0] == nxt[1]`), pops tails, updates per-player scores, and manages speed/level scaling.
+* **Refactoring Technique:** **Extract Method** (`refactor-composing-methods`). Decompose into sub-methods such as `advancePositions()`, `checkCrossCollisions()`, and `applyFruitScoring()`.
+
+---
+
+### 5. Long Method (Bloater) — Left Untouched / Expanded
+* **Severity:** MEDIUM
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:211` (Method `CyberSnake::draw()`)
+* **Explanation:** Inherited from `main` and expanded to 90 lines. It renders the board frame, tiles, obstacles, fruit, multiple distinct snake color gradients (cyan for P1, orange/gold for P2), dual-player HUD scores, and winner/loser footer banners.
+* **Refactoring Technique:** **Extract Method** (`refactor-composing-methods`). Decompose into modular rendering functions.
+
+---
