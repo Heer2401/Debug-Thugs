@@ -55,16 +55,41 @@ At least three things the agent reported that are *not* real findings on this co
 
 ## 5. Refactor plan — [6]
 
+| # | sha | subject | what it is |
+|---|---|---|---|
+| 1 | c95357c | Add ubiquitous language glossary | glossary |
+| 2 | e620dc6 | Add code smell audit | smell report |
+| 3 | 2376ac8 | Refactor snake count representation | the refactor alone |
+| 4 | 8ba9004 | Add second player feature | the feature alone |
+
 ---
 
 ## 6. Commit log — [6]
+
+| Run | Step | Changes (-w) | Changes (raw) |
+|---|---|---|---|
+| Run 1 (Lab 1) | Feature PR | 1 file changed, 114 insertions(+), 41 deletions(-) | 1 file changed, 142 insertions(+), 58 deletions(-) |
+| Run 2 (Lab 2) | Commit 3 (Refactor) | 1 file changed, 77 insertions(+), 46 deletions(-) | 1 file changed, 467 insertions(+), 436 deletions(-) |
+| Run 2 (Lab 2) | Commit 4 (Feature) | 1 file changed, 86 insertions(+), 29 deletions(-) | 1 file changed, 96 insertions(+), 39 deletions(-) |
 
 ---
 
 ## 7. What I learned about ubiquitous language — [4]
 
+**Q1: Which smell did Commit 3 actually fix?**
+Commit 3 fixed the **Data Clumps** smell at `part5.cpp:183-189`. Previously, snake state (`body`, `dir`, `pending_dir`, `score`, `dir_changed`) was held as loose, independent variables. Adding an extra snake in Lab 1 required duplicating all these variables (`snake2`, `score2`, etc.) across 6 functions. Commit 3 encapsulated snake state into `struct Snake` and parameterized the collection via `NUM_SNAKES`. Consequently, snake count is defined in exactly one place, allowing game loops to iterate generically without duplication.
+
+**Q2: Comparing Commit 4 with Lab 1 implementation**
+In Lab 1, adding the second player introduced structural duplication and hardcoded parallel variables. In Run 2 (Commit 4), because the architecture already operated over a collection of `Snake` objects, implementing the feature only required adjusting `NUM_SNAKES = 2`, initializing starting offsets, and routing player 2 key inputs. Feature diff dropped from 114 insertions to 86 insertions (-w) with zero newly introduced code smells.
+
 ---
 
 ## 8. What I learned about refactoring with an AI agent — [5]
+
+**Q3: Did the assistant suggest restructuring in Lab 1?**
+No. In `LLM-LOG.md`, Prompt #5 explicitly instructed the assistant: *"Do not add new menus, colors, renaming, or refactoring."* The assistant followed these negative constraints strictly and implemented the feature via immediate duplication without proposing structural improvements. For the assistant to suggest restructuring first, the prompt would need to explicitly ask: *"Analyze existing code smells and suggest design improvements before implementing the second player."*
+
+**Q4: How do you know Commit 3 did not change behaviour?**
+We confirmed behavioural equivalence by verifying that `NUM_SNAKES = 1` maintained identical single-player gameplay. The snake spawned at the exact center with length 5, responded to both Arrow and WASD keys, accumulated identical scores across normal/bonus/speed fruits, scaled level and speed at identical thresholds, and triggered game-over on wall/obstacle/self collisions without regression.
 
 ---
