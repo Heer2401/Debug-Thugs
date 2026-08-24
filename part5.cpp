@@ -120,6 +120,15 @@ struct Fruit {
     int type; 
 };
 
+struct Snake {
+    deque<Pt> body;
+    Dir dir = RIGHT;
+    Dir pending_dir = RIGHT;
+    bool dir_changed = false;
+    bool lost = false;
+    int score = 0;
+};
+
 class CyberSnake {
 public:
     CyberSnake() : rng((uint64_t)steady_clock::now().time_since_epoch().count()) {
@@ -137,14 +146,23 @@ public:
         if (cols % 2 == 0) cols--;
 
         board.assign(rows, string(cols, ' '));
-        snake.clear();
+        snakes.assign(NUM_SNAKES, Snake());
         int sr = rows/2, sc = cols/2;
-        // initial snake length 5
-        for (int i=0;i<5;i++) snake.push_back({sr, sc - i});
-        dir = RIGHT; pending_dir = RIGHT; dir_changed = false;
+        
+        for (size_t s_idx = 0; s_idx < NUM_SNAKES; ++s_idx) {
+            snakes[s_idx].body.clear();
+            // initial snake length 5
+            for (int i = 0; i < 5; i++) snakes[s_idx].body.push_back({sr, sc - i});
+            snakes[s_idx].dir = RIGHT;
+            snakes[s_idx].pending_dir = RIGHT;
+            snakes[s_idx].dir_changed = false;
+            snakes[s_idx].lost = false;
+            snakes[s_idx].score = 0;
+        }
+
         alive = true;
         paused = false;
-        score = 0; level = 1; fruitsEaten = 0;
+        level = 1; fruitsEaten = 0;
         baseDelay = 100; curDelay = baseDelay;
         obstacles.clear();
         placeFruit();
@@ -168,7 +186,7 @@ public:
                     step();
                 }
                 draw();
-                dir_changed = false; 
+                for (auto &s : snakes) s.dir_changed = false;
                 nextTime = now + milliseconds(max(25, curDelay));
             } else {
                 this_thread::sleep_for(milliseconds(2));
@@ -178,15 +196,14 @@ public:
     }
 
 private:
+    static constexpr size_t NUM_SNAKES = 1; // "how many snakes there are" is written in exactly one place
     int rows=16, cols=36;
     vector<string> board;
-    deque<Pt> snake;
+    vector<Snake> snakes;
     vector<Pt> obstacles;
     Fruit fruit;
-    Dir dir = RIGHT, pending_dir = RIGHT;
-    bool dir_changed = false;
     bool alive = true, paused = false;
-    int score = 0, level = 1, fruitsEaten = 0;
+    int level = 1, fruitsEaten = 0;
     int baseDelay = 100, curDelay = 100;
     std::mt19937_64 rng;
 
@@ -244,23 +261,25 @@ private:
         else if (fruit.type == 1) cout << "\x1b[38;2;255;215;90m" << "★" << "\x1b[0m";
         else cout << "\x1b[38;2;160;240;160m" << "✦" << "\x1b[0m";
 
-        for (int i=0;i<snake.size();++i) {
-            Pt s = snake[i];
-            T::moveTo(top+2+s.r, left+2+s.c);
-            // head
-            if (i==0) cout << "\x1b[38;2;120;255;230m" << "■" << "\x1b[0m";
-            else {
-                int t = (int)( (double)i / max(1,(int)snake.size()) * 120 );
-                int r = max(20, 30 + t), g = max(80, 200 - t), b = max(30, 80 + t/2);
-                char buf[64]; sprintf(buf, "\x1b[38;2;%d;%d;%dm", r,g,b);
-                cout << buf << "■" << "\x1b[0m";
+        for (size_t s_idx = 0; s_idx < snakes.size(); ++s_idx) {
+            for (size_t i = 0; i < snakes[s_idx].body.size(); ++i) {
+                Pt s = snakes[s_idx].body[i];
+                T::moveTo(top + 2 + s.r, left + 2 + s.c);
+                // head
+                if (i == 0) cout << "\x1b[38;2;120;255;230m" << "■" << "\x1b[0m";
+                else {
+                    int t = (int)( (double)i / max(1,(int)snakes[s_idx].body.size()) * 120 );
+                    int r = max(20, 30 + t), g = max(80, 200 - t), b = max(30, 80 + t/2);
+                    char buf[64]; sprintf(buf, "\x1b[38;2;%d;%d;%dm", r,g,b);
+                    cout << buf << "■" << "\x1b[0m";
+                }
             }
         }
 
         // Side HUD
         int hudL = left + frameW + 2;
         T::moveTo(top + 1, hudL); cout << "\x1b[38;2;200;120;255mCyber - Neon Snake\x1b[0m";
-        T::moveTo(top + 3, hudL); cout << "Score: " << score;
+        T::moveTo(top + 3, hudL); cout << "Score: " << (snakes.empty() ? 0 : snakes[0].score);
         T::moveTo(top + 4, hudL); cout << "Level: " << level;
         T::moveTo(top + 5, hudL); cout << "Speed: " << (1000 / max(1, curDelay));
         T::moveTo(top + 7, hudL); cout << "Fruit: ● normal  ★ bonus  ✦ speed";
@@ -283,7 +302,9 @@ private:
     void placeFruit() {
         vector<Pt> empties;
         vector<vector<char>> used(rows, vector<char>(cols, 0));
-        for (auto &s : snake) used[s.r][s.c] = 1;
+        for (const auto &s : snakes) {
+            for (const auto &pt : s.body) used[pt.r][pt.c] = 1;
+        }
         for (auto &o : obstacles) used[o.r][o.c] = 1;
         for (int r=0;r<rows;r++) for (int c=0;c<cols;c++) if (!used[r][c]) empties.push_back({r,c});
         if (empties.empty()) return;
@@ -300,7 +321,9 @@ private:
             // place one obstacle
             vector<Pt> empties;
             vector<vector<char>> used(rows, vector<char>(cols, 0));
-            for (auto &s : snake) used[s.r][s.c] = 1;
+            for (const auto &s : snakes) {
+                for (const auto &pt : s.body) used[pt.r][pt.c] = 1;
+            }
             for (auto &o : obstacles) used[o.r][o.c] = 1;
             for (int r=0;r<rows;r++) for (int c=0;c<cols;c++) if (!used[r][c]) empties.push_back({r,c});
             if (empties.empty()) return;
@@ -310,53 +333,61 @@ private:
     }
 
     void step() {
-        dir = pending_dir;
+        for (auto &s : snakes) s.dir = s.pending_dir;
 
-        Pt head = snake.front();
-        Pt nxt = head;
-        switch (dir) {
-            case UP:    nxt.r--; break;
-            case DOWN:  nxt.r++; break;
-            case LEFT:  nxt.c--; break;
-            case RIGHT: nxt.c++; break;
-            default: break;
-        }
-        
-        // wall or obstacle collision
-        if (nxt.r < 0 || nxt.r >= rows || nxt.c < 0 || nxt.c >= cols) { alive = false; return; }
-        for (auto &o : obstacles) if (o.r == nxt.r && o.c == nxt.c) { alive = false; return; }
+        vector<Pt> nxt(snakes.size());
+        vector<bool> grow(snakes.size(), false);
 
-        // will the snake grow this tick?
-        bool grow = (nxt.r == fruit.p.r && nxt.c == fruit.p.c);
-
-        // if not growing, the tail cell will be vacated BEFORE checking self-collision
-        if (!grow) {
-            snake.pop_back();               
-        }
-
-        // self-collision 
-        for (const auto &s : snake) {
-            if (s.r == nxt.r && s.c == nxt.c) { alive = false; return; }
-        }
-
-        // place new head
-        snake.push_front(nxt);
-
-        // handle fruit
-        if (grow) {
-            fruitsEaten++;
-            if (fruit.type == 0) score += 10;
-            else if (fruit.type == 1) score += 25;
-            else { // speed fruit
-                score += 8;
-                curDelay = max(30, curDelay - 15);
+        for (size_t i = 0; i < snakes.size(); ++i) {
+            Pt head = snakes[i].body.front();
+            nxt[i] = head;
+            switch (snakes[i].dir) {
+                case UP:    nxt[i].r--; break;
+                case DOWN:  nxt[i].r++; break;
+                case LEFT:  nxt[i].c--; break;
+                case RIGHT: nxt[i].c++; break;
+                default: break;
             }
-            if (fruitsEaten % 4 == 0) {
-                level++;
-                curDelay = max(30, curDelay - 6);
+            
+            // will the snake grow this tick?
+            grow[i] = (nxt[i].r == fruit.p.r && nxt[i].c == fruit.p.c);
+
+            // if not growing, the tail cell will be vacated BEFORE checking self-collision
+            if (!grow[i]) {
+                snakes[i].body.pop_back();               
             }
-            placeFruit();
-            maybeAddObstacle();
+        }
+
+        // wall, obstacle, and snake collisions
+        for (size_t i = 0; i < snakes.size(); ++i) {
+            if (nxt[i].r < 0 || nxt[i].r >= rows || nxt[i].c < 0 || nxt[i].c >= cols) { alive = false; return; }
+            for (auto &o : obstacles) if (o.r == nxt[i].r && o.c == nxt[i].c) { alive = false; return; }
+            for (size_t j = 0; j < snakes.size(); ++j) {
+                for (const auto &s : snakes[j].body) {
+                    if (s.r == nxt[i].r && s.c == nxt[i].c) { alive = false; return; }
+                }
+            }
+        }
+
+        // place new head and handle fruit
+        for (size_t i = 0; i < snakes.size(); ++i) {
+            snakes[i].body.push_front(nxt[i]);
+
+            if (grow[i]) {
+                fruitsEaten++;
+                if (fruit.type == 0) snakes[i].score += 10;
+                else if (fruit.type == 1) snakes[i].score += 25;
+                else { // speed fruit
+                    snakes[i].score += 8;
+                    curDelay = max(30, curDelay - 15);
+                }
+                if (fruitsEaten % 4 == 0) {
+                    level++;
+                    curDelay = max(30, curDelay - 6);
+                }
+                placeFruit();
+                maybeAddObstacle();
+            }
         }
     }
 
@@ -370,18 +401,18 @@ private:
         if (!alive) return true;
         if (paused) return true;
 
-        if (dir_changed) return true;
+        if (snakes.empty() || snakes[0].dir_changed) return true;
 
-        Dir candidate = dir;
+        Dir candidate = snakes[0].dir;
         if (key == KEY_UP || key == 'w' || key == 'W') candidate = UP;
         else if (key == KEY_DOWN || key == 's' || key == 'S') candidate = DOWN;
         else if (key == KEY_LEFT || key == 'a' || key == 'A') candidate = LEFT;
         else if (key == KEY_RIGHT || key == 'd' || key == 'D') candidate = RIGHT;
 
         // prevent 180-degree turn
-        if (!isOpposite(dir, candidate) && candidate != NONE) {
-            pending_dir = candidate;
-            dir_changed = true;
+        if (!isOpposite(snakes[0].dir, candidate) && candidate != NONE) {
+            snakes[0].pending_dir = candidate;
+            snakes[0].dir_changed = true;
         }
         return true;
     }
