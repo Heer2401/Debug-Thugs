@@ -148,11 +148,13 @@ public:
         board.assign(rows, string(cols, ' '));
         snakes.assign(NUM_SNAKES, Snake());
         int sr = rows/2, sc = cols/2;
+        int sr1 = max(0, sr - 2);
+        int sr2 = min(rows - 1, sr + 2);
         
         for (size_t s_idx = 0; s_idx < NUM_SNAKES; ++s_idx) {
             snakes[s_idx].body.clear();
-            // initial snake length 5
-            for (int i = 0; i < 5; i++) snakes[s_idx].body.push_back({sr, sc - i});
+            int start_row = (s_idx == 0 ? sr1 : sr2);
+            for (int i = 0; i < 5; i++) snakes[s_idx].body.push_back({start_row, sc - i});
             snakes[s_idx].dir = RIGHT;
             snakes[s_idx].pending_dir = RIGHT;
             snakes[s_idx].dir_changed = false;
@@ -196,7 +198,7 @@ public:
     }
 
 private:
-    static constexpr size_t NUM_SNAKES = 1; // "how many snakes there are" is written in exactly one place
+    static constexpr size_t NUM_SNAKES = 2; // "how many snakes there are" is written in exactly one place
     int rows=16, cols=36;
     vector<string> board;
     vector<Snake> snakes;
@@ -265,13 +267,24 @@ private:
             for (size_t i = 0; i < snakes[s_idx].body.size(); ++i) {
                 Pt s = snakes[s_idx].body[i];
                 T::moveTo(top + 2 + s.r, left + 2 + s.c);
-                // head
-                if (i == 0) cout << "\x1b[38;2;120;255;230m" << "■" << "\x1b[0m";
-                else {
-                    int t = (int)( (double)i / max(1,(int)snakes[s_idx].body.size()) * 120 );
-                    int r = max(20, 30 + t), g = max(80, 200 - t), b = max(30, 80 + t/2);
-                    char buf[64]; sprintf(buf, "\x1b[38;2;%d;%d;%dm", r,g,b);
-                    cout << buf << "■" << "\x1b[0m";
+                if (s_idx == 0) {
+                    // head P1
+                    if (i == 0) cout << "\x1b[38;2;120;255;230m" << "■" << "\x1b[0m";
+                    else {
+                        int t = (int)( (double)i / max(1,(int)snakes[s_idx].body.size()) * 120 );
+                        int r = max(20, 30 + t), g = max(80, 200 - t), b = max(30, 80 + t/2);
+                        char buf[64]; sprintf(buf, "\x1b[38;2;%d;%d;%dm", r,g,b);
+                        cout << buf << "■" << "\x1b[0m";
+                    }
+                } else {
+                    // head P2
+                    if (i == 0) cout << "\x1b[38;2;255;180;120m" << "■" << "\x1b[0m";
+                    else {
+                        int t = (int)( (double)i / max(1,(int)snakes[s_idx].body.size()) * 120 );
+                        int r = max(80, 220 - t), g = max(30, 100 + t/2), b = max(20, 30 + t);
+                        char buf[64]; sprintf(buf, "\x1b[38;2;%d;%d;%dm", r,g,b);
+                        cout << buf << "■" << "\x1b[0m";
+                    }
                 }
             }
         }
@@ -279,17 +292,26 @@ private:
         // Side HUD
         int hudL = left + frameW + 2;
         T::moveTo(top + 1, hudL); cout << "\x1b[38;2;200;120;255mCyber - Neon Snake\x1b[0m";
-        T::moveTo(top + 3, hudL); cout << "Score: " << (snakes.empty() ? 0 : snakes[0].score);
-        T::moveTo(top + 4, hudL); cout << "Level: " << level;
-        T::moveTo(top + 5, hudL); cout << "Speed: " << (1000 / max(1, curDelay));
-        T::moveTo(top + 7, hudL); cout << "Fruit: ● normal  ★ bonus  ✦ speed";
-        T::moveTo(top + 9, hudL); cout << "Controls: Arrows / WASD";
-        T::moveTo(top + 10, hudL); cout << "P - Pause | R - Restart | Q - Quit";
+        T::moveTo(top + 3, hudL); cout << "P1 Score: " << (snakes.empty() ? 0 : snakes[0].score) << "   ";
+        T::moveTo(top + 4, hudL); cout << "P2 Score: " << (snakes.size() > 1 ? snakes[1].score : 0) << "   ";
+        T::moveTo(top + 5, hudL); cout << "Level: " << level;
+        T::moveTo(top + 6, hudL); cout << "Speed: " << (1000 / max(1, curDelay));
+        T::moveTo(top + 8, hudL); cout << "Fruit: ● normal  ★ bonus  ✦ speed";
+        T::moveTo(top + 10, hudL); cout << "P1: Arrows | P2: WASD";
+        T::moveTo(top + 11, hudL); cout << "P - Pause | R - Restart | Q - Quit";
 
         // footer / game over
         if (!alive) {
             T::moveTo(top + frameH + 1, left + 2);
-            cout << "\x1b[1;38;2;255;120;140m GAME OVER — Press R to restart or Q to quit \x1b[0m";
+            if (snakes.size() > 1 && snakes[0].lost && snakes[1].lost) {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Both Players Lost! Press R to restart or Q to quit \x1b[0m";
+            } else if (snakes[0].lost) {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Player 1 Lost! Press R to restart or Q to quit \x1b[0m";
+            } else if (snakes.size() > 1 && snakes[1].lost) {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Player 2 Lost! Press R to restart or Q to quit \x1b[0m";
+            } else {
+                cout << "\x1b[1;38;2;255;120;140m GAME OVER — Press R to restart or Q to quit \x1b[0m";
+            }
         } else if (paused) {
             T::moveTo(top + frameH + 1, left + 2);
             cout << "\x1b[1;38;2;240;220;120m PAUSED — Press P to resume \x1b[0m";
@@ -352,21 +374,41 @@ private:
             // will the snake grow this tick?
             grow[i] = (nxt[i].r == fruit.p.r && nxt[i].c == fruit.p.c);
 
-            // if not growing, the tail cell will be vacated BEFORE checking self-collision
+            // if not growing, the tail cell will be vacated BEFORE checking collisions
             if (!grow[i]) {
                 snakes[i].body.pop_back();               
             }
         }
 
-        // wall, obstacle, and snake collisions
+        vector<bool> hit(snakes.size(), false);
+
+        // wall, obstacle, and cross-snake collisions
         for (size_t i = 0; i < snakes.size(); ++i) {
-            if (nxt[i].r < 0 || nxt[i].r >= rows || nxt[i].c < 0 || nxt[i].c >= cols) { alive = false; return; }
-            for (auto &o : obstacles) if (o.r == nxt[i].r && o.c == nxt[i].c) { alive = false; return; }
-            for (size_t j = 0; j < snakes.size(); ++j) {
-                for (const auto &s : snakes[j].body) {
-                    if (s.r == nxt[i].r && s.c == nxt[i].c) { alive = false; return; }
+            if (nxt[i].r < 0 || nxt[i].r >= rows || nxt[i].c < 0 || nxt[i].c >= cols) hit[i] = true;
+            if (!hit[i]) {
+                for (auto &o : obstacles) if (o.r == nxt[i].r && o.c == nxt[i].c) { hit[i] = true; break; }
+            }
+            if (!hit[i]) {
+                for (size_t j = 0; j < snakes.size(); ++j) {
+                    for (const auto &s : snakes[j].body) {
+                        if (s.r == nxt[i].r && s.c == nxt[i].c) { hit[i] = true; break; }
+                    }
+                    if (hit[i]) break;
                 }
             }
+        }
+
+        // head-on collision
+        if (snakes.size() >= 2 && nxt[0].r == nxt[1].r && nxt[0].c == nxt[1].c) {
+            hit[0] = true;
+            hit[1] = true;
+        }
+
+        if (hit[0] || (snakes.size() > 1 && hit[1])) {
+            alive = false;
+            snakes[0].lost = hit[0];
+            if (snakes.size() > 1) snakes[1].lost = hit[1];
+            return;
         }
 
         // place new head and handle fruit
@@ -375,10 +417,10 @@ private:
 
             if (grow[i]) {
                 fruitsEaten++;
-                if (fruit.type == 0) snakes[i].score += 10;
-                else if (fruit.type == 1) snakes[i].score += 25;
-                else { // speed fruit
-                    snakes[i].score += 8;
+                int ptValue = (fruit.type == 0 ? 10 : (fruit.type == 1 ? 25 : 8));
+                snakes[i].score += ptValue;
+
+                if (fruit.type == 2) {
                     curDelay = max(30, curDelay - 15);
                 }
                 if (fruitsEaten % 4 == 0) {
@@ -401,19 +443,34 @@ private:
         if (!alive) return true;
         if (paused) return true;
 
-        if (snakes.empty() || snakes[0].dir_changed) return true;
+        // Player 1 (Arrow keys)
+        if (!snakes.empty() && !snakes[0].dir_changed) {
+            Dir cand1 = snakes[0].dir;
+            if (key == KEY_UP) cand1 = UP;
+            else if (key == KEY_DOWN) cand1 = DOWN;
+            else if (key == KEY_LEFT) cand1 = LEFT;
+            else if (key == KEY_RIGHT) cand1 = RIGHT;
 
-        Dir candidate = snakes[0].dir;
-        if (key == KEY_UP || key == 'w' || key == 'W') candidate = UP;
-        else if (key == KEY_DOWN || key == 's' || key == 'S') candidate = DOWN;
-        else if (key == KEY_LEFT || key == 'a' || key == 'A') candidate = LEFT;
-        else if (key == KEY_RIGHT || key == 'd' || key == 'D') candidate = RIGHT;
-
-        // prevent 180-degree turn
-        if (!isOpposite(snakes[0].dir, candidate) && candidate != NONE) {
-            snakes[0].pending_dir = candidate;
-            snakes[0].dir_changed = true;
+            if (!isOpposite(snakes[0].dir, cand1) && cand1 != NONE) {
+                snakes[0].pending_dir = cand1;
+                snakes[0].dir_changed = true;
+            }
         }
+
+        // Player 2 (WASD)
+        if (snakes.size() > 1 && !snakes[1].dir_changed) {
+            Dir cand2 = snakes[1].dir;
+            if (key == 'w' || key == 'W') cand2 = UP;
+            else if (key == 's' || key == 'S') cand2 = DOWN;
+            else if (key == 'a' || key == 'A') cand2 = LEFT;
+            else if (key == 'd' || key == 'D') cand2 = RIGHT;
+
+            if (!isOpposite(snakes[1].dir, cand2) && cand2 != NONE) {
+                snakes[1].pending_dir = cand2;
+                snakes[1].dir_changed = true;
+            }
+        }
+
         return true;
     }
 
