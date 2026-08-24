@@ -1,56 +1,45 @@
-﻿# Code Smell Analysis
+# Code Smell Audit — Original `main` Branch
 
-### 1. Accepted Code Smell Findings
-
-These findings represent genuine architectural or design weaknesses that negatively impact the maintainability and scalability of the codebase.
-
-#### Large Class
-* **Severity:** HIGH
-* **Citation:** part5.cpp:123 (Class CyberSnake)
-* **Explanation:** This class violates the Single Responsibility Principle. It acts as a "God Class" that manages ANSI terminal rendering, OS-specific keyboard polling, game loop timing, and core game logic (collisions, score, snake growth). This tight coupling makes it very difficult to change the rendering engine without risking gameplay bugs, or to test the game logic in isolation.
-* **Refactoring Technique:** **Extract Class**. Separate responsibilities into independent classes like GameEngine (logic), TerminalRenderer (ANSI drawing), and InputHandler (keyboard).
-
-#### Duplicate Code
-* **Severity:** HIGH
-* **Citation:** part5.cpp:372-382
-* **Explanation:** The complex business logic for collision detection is completely copy-pasted. The exact same boundary, obstacle, and self-hit evaluations are run for p1_hit on nxt, and then identically repeated for p2_hit on nxt2. If collision rules change, the developer must remember to update multiple places, which frequently introduces bugs.
-* **Refactoring Technique:** **Extract Method**. Create a reusable collision function, e.g., bool checkHit(Pt head, const vector<Pt>& self, const vector<Pt>& other).
-
-#### Data Clumps
-* **Severity:** MEDIUM
-* **Citation:** part5.cpp:189-197
-* **Explanation:** The same groups of variables appear together repeatedly, which is a strong indicator of a missing domain abstraction. The class declares paired variables for every player trait: snake/snake2, dir/dir2, pending_dir/pending_dir2, p1Lost/p2Lost, and score/score2. This is a procedural anti-pattern leaking into object-oriented design.
-* **Refactoring Technique:** **Extract Class**. Introduce a Player or SnakeState class that encapsulates a snake's coordinate queue, current direction, score, and alive status.
-
-#### Long Method
-* **Severity:** HIGH
-* **Citation:** part5.cpp:342 (Method CyberSnake::step())
-* **Explanation:** The method spans over 70 lines and does far too much. It calculates the next position for both snakes, handles fruit consumption, evaluates all collisions, updates the delay interval, increments the level, and triggers new obstacle spawns.
-* **Refactoring Technique:** **Extract Method**. Break the execution down into smaller, self-documenting methods like moveSnakes(), evaluateCollisions(), and handleFruitConsumption().
-
-#### Primitive Obsession
-* **Severity:** MEDIUM
-* **Citation:** part5.cpp:120 (struct Fruit)
-* **Explanation:** The code uses raw primitives (magic numbers) to represent specific domain concepts. int type; dictates the fruit type, and scattered across the codebase are arbitrary checks like type == 0, type == 1, and type == 2 to determine scoring and color.
-* **Refactoring Technique:** **Replace Type Code with Class** or, at a minimum, introduce an enum class FruitType { Normal, Bonus, Speed }.
+> **Scope:** Analysis of the original baseline code as received on the `main` branch (`part5.cpp` single-player baseline).  
+> **Confidence Model:** Calibrated using `review-accuracy-calibration` (C1–C4).  
+> **Taxonomy:** Based on `detect-code-smells`.
 
 ---
 
-### 2. Rejected Code-Smell Candidates
+## Accepted Code Smell Findings
 
-These are plausible findings that a novice reviewer might flag, but they should be **rejected** because they represent acceptable, pragmatic C++ usage rather than genuine smells.
+### 1. Large Class (Bloater)
+* **Severity:** HIGH
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:131` (Class `CyberSnake`)
+* **Explanation:** `CyberSnake` acts as a God Class violating the Single Responsibility Principle. It combines low-level ANSI terminal rendering (`draw()`, `drawFrame()`, `drawSplashThenWaitKey()`), OS-specific keyboard polling (`getKeyNonBlocking()`, `handleInput()`), game loop timing (`run()`), and core game rules (movement, score calculation, fruit spawn, level progression, and collision detection). This tight coupling makes testing logic in isolation impossible and complicates any UI modifications.
+* **Refactoring Technique:** **Extract Class** (`refactor-moving-features`). Separate responsibilities into dedicated abstractions: `GameEngine` (state & rules), `TerminalRenderer` (ANSI drawing), and `InputHandler` (keyboard polling).
 
-#### Rejected Candidate: Switch Statements
-* **Citation:** part5.cpp:348-353 (Switching on dir for movement).
-* **Explanation:** The skill lists "Switch Statements" as an Object-Orientation Abuser, suggesting polymorphism should be used instead of switching on type codes.
-* **Why it is rejected:** In a simple grid-based game, mapping an enumeration (UP, DOWN, LEFT, RIGHT) to coordinate math (nxt.r--) via a switch is the most readable and efficient approach. Attempting to replace this with Polymorphism (e.g., creating an UpMovementStrategy class) would be severe over-engineering and would introduce the **Speculative Generality** smell.
+---
 
-#### Rejected Candidate: Data Class
-* **Citation:** part5.cpp:118 (struct Fruit) and part5.cpp:22 (struct Pt).
-* **Explanation:** The skill identifies classes that contain only fields (no behavior) as the "Data Class" smell. 
-* **Why it is rejected:** C++ structs intended strictly as Plain Old Data (POD) aggregates are not code smells. Adding arbitrary getters/setters or trying to force behavior into a simple x,y coordinate struct (Pt) adds unnecessary bloat without providing meaningful encapsulation.
+### 2. Long Method (Bloater)
+* **Severity:** HIGH
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:312` (Method `CyberSnake::step()`)
+* **Explanation:** The `step()` method spans 47 lines and executes multiple distinct game loop phases: applying pending direction, computing next head position, evaluating wall and obstacle collisions, popping the tail, evaluating self-collisions, inserting the new head, checking fruit consumption, awarding points, accelerating game speed, leveling up, and optionally spawning new obstacles.
+* **Refactoring Technique:** **Extract Method** (`refactor-composing-methods`). Decompose into focused helper methods such as `moveSnake()`, `checkCollisions()`, `handleFruitConsumption()`, and `maybeAddObstacle()`.
 
-#### Rejected Candidate: Comments (Excessive)
-* **Citation:** part5.cpp:1-5 and standard section headers like //Gameplay (part5.cpp:310).
-* **Explanation:** The skill states that excessive comments suggest code that is too complex to be self-documenting.
-* **Why it is rejected:** The comments in this file are minimal and serve either as necessary compilation instructions (//execution commands:) or as high-level visual dividers. There are no inline comments desperately trying to explain convoluted logic, so the code does not suffer from the "Excessive Comments" smell.
+---
+
+### 3. Primitive Obsession (Bloater)
+* **Severity:** MEDIUM
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:126` (`struct Fruit`) & `part5.cpp:344-348`
+* **Explanation:** The fruit representation relies on a raw integer primitive (`int type;`) rather than a domain abstraction. This introduces magic numbers (`0`, `1`, `2`) scattered across drawing routines, spawn calculations, and scoring/speed logic, reducing readability and type safety.
+* **Refactoring Technique:** **Replace Type Code with Class** / **Replace Type Code with Enum** (`refactor-organizing-data`). Introduce a scoped enum `enum class FruitType { Normal = 0, Bonus = 1, Speed = 2 };`.
+
+---
+
+### 4. Long Method (Bloater)
+* **Severity:** MEDIUM
+* **Confidence:** C3 — High
+* **Location:** `part5.cpp:207` (Method `CyberSnake::draw()`)
+* **Explanation:** The `draw()` method spans 79 lines and handles screen clearing, frame border calculation, background checkerboard drawing, obstacle rendering, fruit color branching, snake body gradient generation, side HUD metrics formatting, and game-over/pause footer rendering all in a single sequential function.
+* **Refactoring Technique:** **Extract Method** (`refactor-composing-methods`). Separate into helper functions: `drawBoard()`, `drawEntities()`, `drawHUD()`, and `drawFooter()`.
+
+---
